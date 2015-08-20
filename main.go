@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	corpusfile := flag.String("corpusFile", "corpora/science.txt", "filename of the corpus file")
+	corpusfile := flag.String("corpusFile", "corpus.txt", "filename of the corpus file")
 	outputFile := flag.String("outputFile", "output.txt", "filename of the ouput file")
 	numSentences := flag.Int("numSentences", 100, "number of sentences to generate")
 	maxSentenceLength := flag.Int("maxSentenceLength", 8, "maximum number of words in generated sentences")
