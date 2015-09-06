@@ -2,11 +2,11 @@ package markov
 
 import (
 	"bufio"
-	"fmt"
 	"io"
+	"log"
 	"math/rand"
-	"strings"
 	"runtime"
+	"strings"
 	"sync"
 )
 
@@ -28,8 +28,8 @@ func (p Prefix) Shift(word string) {
 // A prefix is a string of prefixLen words joined with spaces.
 // A suffix is a single word. A prefix can have multiple suffixes.
 type Chain struct {
-	chain     map[string][]string
-	prefixLen int
+	chain      map[string][]string
+	prefixLen  int
 	writeMutex sync.Mutex
 }
 
@@ -56,45 +56,45 @@ func (c *Chain) Build(r io.ReadSeeker) {
 	words, wordCount := readerToWords(r)
 
 	goroutineCount := runtime.GOMAXPROCS(0)
-
 	syncChan := make(chan bool)
-	for i := 0; i<goroutineCount; i++ {
-		go c.chainBuilder(words[i * (wordCount/goroutineCount): (i+1) * (wordCount/goroutineCount)], syncChan)
-		fmt.Printf("Launching goroutine number %v with limits: %v %v\n", i, i * wordCount/goroutineCount, (i+1) * wordCount/goroutineCount)
+	for i := 0; i < goroutineCount; i++ {
+		go c.chainBuilder(words[i*(wordCount/goroutineCount):(i+1)*(wordCount/goroutineCount)], syncChan)
+		log.Printf("Chain construction: Launching goroutine number %v with limits: %v %v\n", i, i*wordCount/goroutineCount, (i+1)*wordCount/goroutineCount)
 	}
 
-	for i := 0; i<goroutineCount; i++ {
+	for i := 0; i < goroutineCount; i++ {
 		<-syncChan
 	}
-	fmt.Println("All goroutines returned\n")
+	log.Println("Chain construction: All goroutines returned")
 }
 
-func(c *Chain) chainBuilder(words []string, syncChan chan bool) {
+func (c *Chain) chainBuilder(words []string, syncChan chan bool) {
 	p := make(Prefix, c.prefixLen)
-		for _, word := range words {
-			key := p.String()
-			c.writeMutex.Lock()
-			c.chain[key] = append(c.chain[key], word)
-			c.writeMutex.Unlock()
-			p.Shift(word)
+	for _, word := range words {
+		key := p.String()
+		c.writeMutex.Lock()
+		c.chain[key] = append(c.chain[key], word)
+		c.writeMutex.Unlock()
+		p.Shift(word)
 	}
-	syncChan<-true
+	syncChan <- true
 }
 
 // Generate writes nStrings strings of at most nWords each to writer. The strings are generated from Chain.
 func (c *Chain) Generate(nStrings, nWords int, writer io.Writer) {
 	p := make(Prefix, c.prefixLen)
 	for outString := 0; outString < nStrings; outString++ {
+		nextString := make([]string, nWords+1)
 		for i := 0; i < nWords; i++ {
 			choices := c.chain[p.String()]
 			if len(choices) == 0 {
 				break
 			}
-			next := choices[rand.Intn(len(choices))]
-			writer.Write([]byte(next + " "))
-			p.Shift(next)
+			nextWord := choices[rand.Intn(len(choices))]
+			nextString = append(nextString, nextWord)
+			p.Shift(nextWord)
 		}
-		writer.Write([]byte("\n"))
+		writer.Write([]byte(strings.Join(nextString, " ")))
 	}
 }
 
